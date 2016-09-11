@@ -1,0 +1,104 @@
+---
+title: "Market Indicators Lite"
+author: "Paul Adamson"
+date: "September 11, 2016"
+runtime: shiny
+output: html_document
+---
+
+```{r setup, echo=FALSE}
+require(quantmod)
+require(stringr)
+require(XML)
+require(lubridate)
+require(xts)
+options("getSymbols.warning4.0"=FALSE)
+source("./helpers.R")
+thm<-chartTheme('white')
+thm$bg.col<-'white'
+```
+[As described by Nellie S. Huang at 
+Kiplinger](http://www.kiplinger.com/slideshow/investing/T052-S001-6-key-stock-market-indicators-to-watch-slide-show/index.html#VEQZcU4oQ5l0MEIz.99), 
+six key indicators can be used to guage potential for future market gains:
+
+1. S&P 500 Price Versus the 200-Day Moving Average
+2. Consumer Confidence
+3. Weekly Unemployed Insurance Claims
+4. Strength of U.S. Dollar
+5. Emerging Markets
+6. Price to Earnings Ratio of S&P 500
+
+Due to limitations of free hosting of shiny apps, we will only illustrate the 
+first, S&P 500 Price Versus the 200-Day Moving Average.
+
+S&P 500 Price Versus the 200-Day Moving Average
+-----------------------------------------------
+To compute the 200-Day Moving Average of a stock or market index for a given date, 
+one takes the average of the closing prices is defined as the average of daily closing prices  of Standard & Poor's 500-stock index over a 
+period of time.
+
+*WHY IT MATTERS*: Many analysts draw the dividing line between bear and bull markets by looking 
+at the moving average. If the S&P 500 is trading above its moving average, the thinking goes, 
+it's a bull market -- time to invest. If it moves below the average, it's a bear market.
+
+## Usage
+
+The user can easily choose whether to plot the log of price and/or adjust 
+for inflation. Also, a slider is provided to easily adjust the timeframe over which
+the plot is made.
+
+```{r SPY, echo=FALSE}
+minDate=seq(Sys.Date(), length = 2, by = "-10 years")[2]
+datesMin=seq(Sys.Date(), length = 2, by = "-12 months")[2]
+maxDate=Sys.Date()
+
+fluidPage(
+  fluidRow(
+    column(3,
+           checkboxInput("log", "Y-axis log scale", 
+                         value = FALSE)
+    ),
+    column(3,
+           checkboxInput("adjust", 
+                         "Adjust for inflation", value = FALSE)
+    )
+  ),
+  fluidRow(
+    column(12,
+           sliderInput("dates",
+                       "Date range",
+                       min=minDate,
+                       max=maxDate,
+                       value=c(datesMin,
+                               maxDate),
+                       width = "1200px" )
+    )
+  )
+)
+
+spyData <- reactive({
+  getSymbols("^GSPC", src = "yahoo", 
+             from = input$dates[1],
+             to = input$dates[2],
+             auto.assign = FALSE,
+             method='curl')
+})
+
+spyDataAdj <- reactive({
+  if (!input$adjust) {
+    return(spyData())
+  } else {
+    return(adjust(spyData()))
+  }
+})
+
+renderPlot({
+  chartSeries(spyDataAdj(), 
+              theme = thm, 
+              type = "line", 
+              log.scale = input$log, 
+              TA = NULL,
+              name="S&P 500")
+  addSMA(n = 200, on = 1, with.col = Cl, overlay = TRUE, col = "black")
+})
+```
